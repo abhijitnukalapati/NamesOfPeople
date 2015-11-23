@@ -1,27 +1,30 @@
 package com.abhi.namesofpeople;
 
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.widget.EditText;
-import android.widget.RadioButton;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.google.gson.GsonBuilder;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+
 import butterknife.Bind;
-import butterknife.BindString;
 import butterknife.ButterKnife;
-import butterknife.OnClick;
 
 public class MainActivity extends AppCompatActivity {
 
-    @Bind(R.id.firstName) EditText vFirstName;
-    @Bind(R.id.lastName) EditText vLastName;
-    @Bind(R.id.fullName) TextView vFullName;
-    @Bind(R.id.orderNormal) RadioButton vOrderNormal;
-    @Bind(R.id.orderReversed) RadioButton vOrderReversed;
-    @BindString(R.string.hint_full_name) String mFullNameHint;
+    private static final String LOG_TAG = "NamesOfPeople";
 
-    private final String NAME_KEY = "name_key"; // key for retaining vFullName's state
-    private boolean mShouldReverseName; // flag to display the full name in reverse
+    @Bind(R.id.list_people) RecyclerView vPeopleRecyclerView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,35 +32,89 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
 
-        if(savedInstanceState != null) {
-            vFullName.setText(savedInstanceState.getString(NAME_KEY, mFullNameHint));
+        vPeopleRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        new ParseJsonTask().execute();
+    }
+
+    private static class PeopleAdapter extends RecyclerView.Adapter<PeopleAdapter.NameViewHolder> {
+
+        private List<Data.Name> names;
+
+        public PeopleAdapter(List<Data.Name> names) {
+            this.names = names;
+        }
+
+        public class NameViewHolder extends RecyclerView.ViewHolder {
+            public TextView textView;
+
+            public NameViewHolder(TextView textView) {
+                super(textView);
+                this.textView = textView;
+            }
+        }
+
+        @Override
+        public NameViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            TextView textView = (TextView) LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item, parent, false);
+            return new NameViewHolder(textView);
+        }
+
+        @Override
+        public void onBindViewHolder(NameViewHolder holder, int position) {
+            Data.Name name = names.get(position);
+            String nameString = name.firstName;
+
+            if(!TextUtils.isEmpty(name.lastName)) {
+                nameString = nameString + " " +  name.lastName;
+            }
+
+            holder.textView.setText(nameString);
+        }
+
+        @Override
+        public int getItemCount() {
+            return names.size();
         }
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-         // TextView's current text isn't stored by the system, in spite
-         // of having an id defined in xml. So, we have to do it manually
-        outState.putString(NAME_KEY, vFullName.getText().toString());
-        super.onSaveInstanceState(outState);
-    }
+    /**
+     * A subclass of AsyncTask that reads a json file and parses out the json
+     * data
+     */
+    private class ParseJsonTask extends AsyncTask<Void, Void, List<Data.Name>> {
 
-    @OnClick(R.id.displayName)
-    void displayName() {
-        final String first_name = vFirstName.getText().toString();
-        final String last_name = vLastName.getText().toString();
-
-        if(mShouldReverseName) {
-            vFullName.setText(String.format("%s %s", first_name, last_name));
-        } else {
-            vFullName.setText(String.format("%s %s", last_name, first_name));
+        @Override
+        protected void onPreExecute() {
+            Log.d(LOG_TAG, "Calling onPreExecute");
         }
-    }
 
-    // no support for RadioGroup's onCheckChangeListener - womp womp :(
-    @OnClick({R.id.orderNormal, R.id.orderReversed})
-    void styleOptionChanged(){
-        mShouldReverseName = vOrderReversed.isChecked();
+        @Override
+        protected List<Data.Name> doInBackground(Void... params) {
+            List<Data.Name> namesList = null;
+
+            try {
+                // read json file
+                InputStream stream = getResources().openRawResource(R.raw.people);
+                byte[] streamBuffer = new byte[stream.available()];
+                stream.read(streamBuffer);
+                stream.close();
+
+                // construct models from json
+                String jsonString = new String(streamBuffer);
+                Data data = new GsonBuilder().create().fromJson(jsonString, Data.class);
+                namesList = data.people;
+            } catch (IOException ie) {
+                Log.d(LOG_TAG, "Error reading json data!");
+            }
+            return namesList;
+        }
+
+        @Override
+        protected void onPostExecute(List<Data.Name> names) {
+            Log.d(LOG_TAG, "Calling onPostExecute");
+            vPeopleRecyclerView.setAdapter(new PeopleAdapter(names));
+        }
     }
 
 }

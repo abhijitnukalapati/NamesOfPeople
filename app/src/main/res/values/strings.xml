@@ -1,14 +1,3 @@
 <resources>
     <string name="app_name">NamesOfPeople</string>
-
-    <!-- Hints -->
-    <string name="hint_first_name">First Name</string>
-    <string name="hint_last_name">Last Name</string>
-    <string name="hint_full_name">Full name will be shown here</string>
-
-    <!-- Button -->
-    <string name="button_display_name">Display Name</string>
-    <string name="choice_normal">Normal</string>
-    <string name="choice_reversed">Reversed</string>
-
 </resources>
